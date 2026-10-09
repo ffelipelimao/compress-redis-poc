@@ -1,0 +1,30 @@
+services:
+  redis:
+    image: redis:7.2-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    cpuset: "${REDIS_CPUSET:-0}"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 1s
+      retries: 30
+
+  poc:
+    build: .
+    cpuset: "${CLIENT_CPUSET:-1-3}"
+    environment:
+      REDIS_ADDR: redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  test:
+    build:
+      context: .
+      target: build
+    environment:
+      REDIS_ADDR: redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: ["go", "test", "-count=1", "-v", "./..."]
